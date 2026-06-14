@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import confetti from "canvas-confetti";
 import Globe from "./components/Globe";
+import Galaxy from "./components/Galaxy";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
@@ -61,14 +62,12 @@ export default function App() {
 
   const fetchBackgroundTelemetry = async () => {
     try {
-      // Fetch stats
       const statsRes = await fetch(`${API_BASE}/api/stats`);
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         setStats(statsData);
       }
       
-      // Fetch background orbits
       const orbitsRes = await fetch(`${API_BASE}/api/orbits`);
       if (orbitsRes.ok) {
         const orbitsData = await orbitsRes.json();
@@ -115,7 +114,6 @@ export default function App() {
     setIsApproved(false);
 
     try {
-      // Try to load cached scenario from backend
       const res = await fetch(`${API_BASE}/api/demo/${scenarioId}`);
       if (res.ok) {
         const data = await res.json();
@@ -124,7 +122,6 @@ export default function App() {
         throw new Error("Backend response error");
       }
     } catch (e) {
-      // Hardcoded local offline fallback if backend server isn't running
       import("./fallback_scenarios").then(({ fallbackScenarios }) => {
         const data = fallbackScenarios[scenarioId];
         if (data) setDemoState(data);
@@ -138,7 +135,6 @@ export default function App() {
     setSelectedConjunction(data.conjunction);
     setConjunctions([data.conjunction]);
     
-    // Inject the scenario orbits into the active set
     setOrbits(prev => ({
       ...prev,
       [data.satA.name]: { positions: data.orbitA },
@@ -154,7 +150,6 @@ export default function App() {
         const data = await res.json();
         setConjunctions(data);
         if (data.length > 0) {
-          // Auto select first conjunction
           setSelectedConjunction(data[0]);
         }
       }
@@ -184,7 +179,6 @@ export default function App() {
     }
   };
 
-  // 1. Live Negotiation via WebSockets
   const runLiveWsNegotiation = () => {
     const url = `${WS_BASE}/ws/negotiate?satA=${selectedConjunction.satA}&satB=${selectedConjunction.satB}`;
     const ws = new WebSocket(url);
@@ -214,8 +208,6 @@ export default function App() {
         setBrief(data.brief);
         appendLog(`Mediator selected optimal resolution: ${data.decision.executor} to execute ${data.decision.satA_action.delta_v_ms > 0 ? data.decision.satA_action.direction : data.decision.satB_action.direction} burn.`, "mediator");
         setIsNegotiating(false);
-        
-        // Fetch maneuvered path coordinates from backend if available
         fetchManeuveredOrbit(data.decision);
       }
     };
@@ -228,11 +220,7 @@ export default function App() {
 
   const fetchManeuveredOrbit = async (decisionData) => {
     try {
-      // Fetch scenario orbits again to verify if we need to load adjusted paths
       if (mode === "live") {
-        // Since live coordinate modification requires analytical TLE perturbation:
-        // We fetch the scenario data from backend or local calculator
-        // For the seeded live conjunction of Starlink-1234, we can retrieve its maneuver path:
         const demoRes = await fetch(`${API_BASE}/api/demo/active_active`);
         if (demoRes.ok) {
           const demoData = await demoRes.json();
@@ -248,9 +236,7 @@ export default function App() {
     }
   };
 
-  // 2. Offline Simulated Replay (High fidelity timers)
   const runSimulatedDemoNegotiation = async () => {
-    // Import current demo scenario cache data
     let scenarioData;
     try {
       const res = await fetch(`${API_BASE}/api/demo/${demoId}`);
@@ -296,13 +282,11 @@ export default function App() {
           setDecision(dec);
           setBrief(scenarioData.brief);
           
-          // Set maneuvered path visualizer
           if (dec.executor === selectedConjunction.satA) {
             setManeuveredOrbit(scenarioData.orbitA_maneuvered);
           } else if (dec.executor === selectedConjunction.satB) {
             setManeuveredOrbit(scenarioData.orbitB_maneuvered);
           } else {
-            // Both
             setManeuveredOrbit(scenarioData.orbitA_maneuvered);
           }
 
@@ -332,7 +316,6 @@ export default function App() {
   };
 
   const handleApprove = () => {
-    // Celebration
     confetti({
       particleCount: 100,
       spread: 70,
@@ -341,7 +324,6 @@ export default function App() {
 
     setIsApproved(true);
     
-    // Dynamically update dashboard stats
     setStats(prev => ({
       ...prev,
       conjunctions_24h: Math.max(0, prev.conjunctions_24h - 1),
@@ -350,33 +332,57 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#04060d] text-slate-100">
+    <div className="app-wrapper">
+      {/* Dynamic Floating Particles Backdrop from React Bits */}
+      <div style={{ position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden", opacity: 0.22 }}>
+        <Galaxy
+          mouseRepulsion={true}
+          mouseInteraction={true}
+          density={1.2}
+          glowIntensity={0.5}
+          saturation={0.7}
+          hueShift={35} /* Luxury Warm Gold Tone matching portfolio background */
+          starSpeed={0.3}
+          rotationSpeed={0.05}
+        />
+      </div>
+
       {/* Top Navbar */}
       <header className="dashboard-header">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-indigo-950/80 rounded-lg border border-indigo-500/30 glow-cyan">
-            <Shield className="w-6 h-6 text-[#00e5ff]" />
+        <div className="header-brand">
+          <div className="brand-icon">
+            <Shield className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-widest font-display text-white mb-0 leading-none">DEBRISMIND</h1>
-            <span className="text-xxs tracking-widest font-mono text-slate-500 uppercase">Autonomous Orbital Traffic Control</span>
+            <h1 className="text-xl font-editorial tracking-wider text-white mb-0.5 leading-none">
+              DEBRIS<span className="text-[#d4c4a8] font-sans font-light tracking-widest text-sm ml-1">MIND</span>
+            </h1>
+            <span className="text-[10px] tracking-[0.25em] font-mono text-slate-500 uppercase block">Autonomous Orbital Traffic Management</span>
           </div>
         </div>
 
-        {/* Mode & Demo Selector */}
-        <div className="flex items-center gap-3">
-          <div className="flex bg-[#0b0f19] border border-slate-800 rounded-lg p-1">
+        {/* System Status & Mode Selectors */}
+        <div className="header-controls">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-950/80 border border-slate-800/60 rounded-lg text-xxs font-mono">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="text-slate-400 uppercase tracking-wider">SYSTEM ONLINE</span>
+          </div>
+
+          <div className="mode-selector">
             <button
               onClick={() => setMode("demo")}
-              className={`px-3 py-1 text-xs font-mono rounded-md transition-all ${mode === "demo" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
+              className={`mode-btn ${mode === "demo" ? "active" : ""}`}
             >
-              Demo Mode
+              Demo Scenario
             </button>
             <button
               onClick={() => setMode("live")}
-              className={`px-3 py-1 text-xs font-mono rounded-md transition-all ${mode === "live" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400 hover:text-white"}`}
+              className={`mode-btn ${mode === "live" ? "active" : ""}`}
             >
-              Live Monitor
+              Live Telemetry
             </button>
           </div>
 
@@ -384,98 +390,103 @@ export default function App() {
             <select
               value={demoId}
               onChange={(e) => setDemoId(e.target.value)}
-              className="bg-[#0b0f19] border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-500"
+              className="dropdown-select"
             >
               <option value="active_active">Scenario 1: Active vs Active</option>
               <option value="active_debris">Scenario 2: Active vs Debris</option>
-              <option value="cooperative_rescue">Scenario 3: Low-Fuel Rescue</option>
+              <option value="cooperative_rescue">Scenario 3: Coordinated Rescue</option>
             </select>
           )}
 
           <button
-            onClick={() => mode === "live" ? scanLiveConjunctions() : loadDemoData(demoId)}
-            className="p-1.5 border border-slate-800 rounded-lg bg-[#0b0f19] hover:bg-slate-800 text-slate-400 hover:text-white transition-all"
+            onClick={() => (mode === "live" ? scanLiveConjunctions() : loadDemoData(demoId))}
+            className="p-2 border border-slate-800 rounded-lg bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-white hover:border-[#d4c4a8] transition-all"
             disabled={isScanning || isNegotiating}
             title="Scan / Refresh Telemetry"
           >
-            <RefreshCw className={`w-4 h-4 ${isScanning ? "animate-spin text-cyan-400" : ""}`} />
+            <RefreshCw className={`w-4 h-4 ${isScanning ? "animate-spin text-[#d4c4a8]" : ""}`} />
           </button>
         </div>
       </header>
 
       {/* Main stats layout */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 px-6 pt-6">
-        <div className="glass-panel flex items-center gap-4">
-          <div className="p-2.5 bg-cyan-950/40 rounded-lg border border-cyan-500/20 text-[#00e5ff]">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xs font-mono uppercase text-slate-500 tracking-wider">Monitored Spacecraft</div>
-            <div className="text-xl font-bold font-display text-white">{stats.total_monitored}</div>
+      <div className="stats-container">
+        <div className="glass-panel">
+          <div className="hud-corner tl"></div>
+          <div className="hud-corner tr"></div>
+          <div className="hud-corner bl"></div>
+          <div className="hud-corner br"></div>
+          <div className="mono-label">Monitored Fleet</div>
+          <div className="text-xl font-bold font-editorial text-white mt-1">{stats.total_monitored}</div>
+        </div>
+
+        <div className="glass-panel" style={{ borderLeft: stats.conjunctions_24h > 0 ? "2px solid var(--accent-red)" : "1px solid var(--border-color)" }}>
+          <div className="hud-corner tl"></div>
+          <div className="hud-corner tr"></div>
+          <div className="hud-corner bl"></div>
+          <div className="hud-corner br"></div>
+          <div className="mono-label">Active Conjunctions</div>
+          <div className="text-xl font-bold font-editorial text-white mt-1" style={{ color: stats.conjunctions_24h > 0 ? "var(--accent-red)" : "inherit" }}>
+            {stats.conjunctions_24h}
           </div>
         </div>
 
-        <div className={`glass-panel flex items-center gap-4 border-l-2 ${stats.conjunctions_24h > 0 ? "border-l-red-500" : "border-l-slate-700"}`}>
-          <div className={`p-2.5 rounded-lg border text-red-500 ${stats.conjunctions_24h > 0 ? "bg-red-950/40 border-red-500/20 animate-pulse" : "bg-slate-900 border-slate-800"}`}>
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xs font-mono uppercase text-slate-500 tracking-wider">Active Conjunctions</div>
-            <div className="text-xl font-bold font-display text-red-500">{stats.conjunctions_24h}</div>
-          </div>
+        <div className="glass-panel">
+          <div className="hud-corner tl"></div>
+          <div className="hud-corner tr"></div>
+          <div className="hud-corner bl"></div>
+          <div className="hud-corner br"></div>
+          <div className="mono-label">Avoidance Executed</div>
+          <div className="text-xl font-bold font-editorial text-emerald-400 mt-1">{stats.maneuvers_executed}</div>
         </div>
 
-        <div className="glass-panel flex items-center gap-4">
-          <div className="p-2.5 bg-emerald-950/40 rounded-lg border border-emerald-500/20 text-[#00e676]">
-            <Check className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xs font-mono uppercase text-slate-500 tracking-wider">Maneuvers Executed</div>
-            <div className="text-xl font-bold font-display text-emerald-400">{stats.maneuvers_executed}</div>
-          </div>
+        <div className="glass-panel">
+          <div className="hud-corner tl"></div>
+          <div className="hud-corner tr"></div>
+          <div className="hud-corner bl"></div>
+          <div className="hud-corner br"></div>
+          <div className="mono-label">Fuel footprint saved</div>
+          <div className="text-xl font-bold font-editorial text-amber-400 mt-1">{stats.fuel_saved_pct}%</div>
         </div>
 
-        <div className="glass-panel flex items-center gap-4">
-          <div className="p-2.5 bg-amber-950/40 rounded-lg border border-amber-500/20 text-amber-400">
-            <Zap className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xs font-mono uppercase text-slate-500 tracking-wider">Avg Fuel Footprint Saved</div>
-            <div className="text-xl font-bold font-display text-amber-300">{stats.fuel_saved_pct}%</div>
-          </div>
-        </div>
-
-        <div className="glass-panel col-span-2 md:col-span-1 flex items-center gap-4">
-          <div className="p-2.5 bg-indigo-950/40 rounded-lg border border-indigo-500/20 text-indigo-400">
-            <Activity className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="text-2xs font-mono uppercase text-slate-500 tracking-wider">Collision Risk Index</div>
-            <div className="text-xs font-mono text-indigo-300 font-semibold">{stats.collision_prob_index}</div>
-          </div>
+        <div className="glass-panel">
+          <div className="hud-corner tl"></div>
+          <div className="hud-corner tr"></div>
+          <div className="hud-corner bl"></div>
+          <div className="hud-corner br"></div>
+          <div className="mono-label">Avg Collision Risk</div>
+          <div className="text-xs font-mono text-indigo-300 mt-2 font-semibold">{stats.collision_prob_index}</div>
         </div>
       </div>
 
       {/* Main Grid content */}
-      <main className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-6 p-6">
+      <main className="dashboard-grid">
         
         {/* Left Column: Conjunctions Alert Feed */}
-        <section className="glass-panel flex flex-col h-[580px]">
-          <div className="flex items-center justify-between border-bottom pb-3 mb-3 border-slate-800">
-            <div className="flex items-center gap-2">
-              <Radio className="w-4 h-4 text-red-500 animate-pulse" />
-              <h2 className="text-xs uppercase font-display tracking-wider text-slate-200">Alert Feed</h2>
+        <section className="glass-panel">
+          <div className="hud-corner tl"></div>
+          <div className="hud-corner tr"></div>
+          <div className="hud-corner bl"></div>
+          <div className="hud-corner br"></div>
+
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800/80" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div className="flex items-center gap-2" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span className="relative flex h-2 w-2" style={{ display: "inline-flex", position: "relative", width: "8px", height: "8px" }}>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" style={{ position: "absolute", width: "100%", height: "100%", borderRadius: "50%" }}></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" style={{ position: "relative", width: "8px", height: "8px", borderRadius: "50%" }}></span>
+              </span>
+              <h2 className="text-xs uppercase font-mono tracking-widest text-[#d4c4a8] font-bold">Threat Feed</h2>
             </div>
-            <span className="bg-red-950/40 border border-red-500/30 text-red-400 text-3xs font-mono px-2 py-0.5 rounded-full uppercase">
-              {conjunctions.length} Threats
+            <span className="bg-rose-950/20 border border-rose-500/30 text-rose-400 text-[9px] font-mono px-2 py-0.5 rounded uppercase" style={{ padding: "2px 6px", border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.1)", borderRadius: "4px" }}>
+              {conjunctions.length} Alerts
             </span>
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+          <div className="alert-feed-list">
             {conjunctions.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                <Shield className="w-10 h-10 text-slate-700 mb-2" />
-                <span className="text-xs text-slate-500 font-mono">No active threats detected. System secure.</span>
+              <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 0", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>
+                <Shield className="w-8 h-8 text-slate-700 mb-2" style={{ marginBottom: "8px" }} />
+                <span>Zero Collision Threats</span>
               </div>
             ) : (
               conjunctions.map((conj, idx) => {
@@ -497,30 +508,28 @@ export default function App() {
                         setIsApproved(false);
                       }
                     }}
-                    className={`p-3 rounded-lg border transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-slate-900 border-[#00e5ff] shadow-neon-cyan"
-                        : "bg-slate-950/60 border-slate-800 hover:border-slate-700"
-                    }`}
+                    className={`alert-card ${isSelected ? "selected" : ""} ${isCritical ? "critical" : ""}`}
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-2xs font-mono font-bold text-slate-100">{conj.satA}</span>
-                      <span className={`text-3xs font-mono px-1.5 py-0.5 rounded uppercase ${
-                        isCritical ? "bg-red-950/60 text-red-400 border border-red-500/20" : "bg-amber-950/60 text-amber-400 border border-amber-500/20"
-                      }`}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "8px" }}>
+                      <span className="text-[11px] font-mono font-bold text-slate-100">{conj.satA}</span>
+                      <span className={`text-[8px] font-mono px-2 py-0.5 rounded uppercase border`} style={{
+                        background: isCritical ? "rgba(244,63,94,0.15)" : "rgba(212,196,168,0.15)",
+                        color: isCritical ? "var(--accent-red)" : "var(--primary-gold)",
+                        borderColor: isCritical ? "rgba(244,63,94,0.3)" : "rgba(212,196,168,0.3)"
+                      }}>
                         {conj.risk} RISK
                       </span>
                     </div>
-                    <div className="text-xxs text-slate-500 font-mono mb-2">vs {conj.satB}</div>
+                    <div className="text-[10px] text-slate-500 font-mono mb-2">⟷ {conj.satB}</div>
                     
-                    <div className="flex justify-between items-center text-2xs font-mono bg-[#070b13] p-1.5 rounded">
-                      <span className="text-slate-400">Miss:</span>
-                      <span className={isCritical ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>
+                    <div className="text-xxs font-mono bg-black/40 p-2 rounded border border-slate-900" style={{ display: "flex", justifyContent: "space-between", background: "rgba(0,0,0,0.3)", padding: "6px 10px", borderRadius: "4px", border: "1px solid #111" }}>
+                      <span className="text-slate-400">Est. Miss:</span>
+                      <span className={isCritical ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>
                         {conj.miss_km} km
                       </span>
                     </div>
 
-                    <div className="mt-2 text-3xs font-mono text-slate-600 flex justify-between">
+                    <div className="mt-3 text-[9px] font-mono text-slate-500" style={{ display: "flex", justifyContent: "space-between", marginTop: "12px" }}>
                       <span>TCA:</span>
                       <span>{new Date(conj.tca).toLocaleTimeString()}</span>
                     </div>
@@ -532,7 +541,7 @@ export default function App() {
         </section>
 
         {/* Center: Globe and Actions */}
-        <section className="lg:col-span-2 flex flex-col gap-4">
+        <section className="panel-globe-view">
           <Globe
             orbits={orbits}
             selectedConjunction={selectedConjunction}
@@ -541,53 +550,73 @@ export default function App() {
             isManeuverApproved={isApproved}
           />
 
-          <div className="glass-panel flex justify-between items-center gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-xxs font-mono uppercase tracking-wider text-slate-500">Selected Conjunction</span>
-              <span className="text-xs font-bold text-white font-mono">
-                {selectedConjunction ? `${selectedConjunction.satA} ⟷ ${selectedConjunction.satB}` : "None Selected"}
-              </span>
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={startNegotiation}
-                disabled={!selectedConjunction || isNegotiating || isApproved}
-                className="btn-neon flex items-center gap-2"
-              >
-                <Play className="w-3.5 h-3.5" />
-                <span>Initiate Negotiation</span>
-              </button>
+          <div className="glass-panel relative" style={{ padding: "20px" }}>
+            <div className="hud-corner tl"></div>
+            <div className="hud-corner tr"></div>
+            <div className="hud-corner bl"></div>
+            <div className="hud-corner br"></div>
 
-              <button
-                onClick={handleApprove}
-                disabled={!decision || isApproved || isNegotiating}
-                className="btn-neon btn-neon-green flex items-center gap-2"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>Approve Burn</span>
-              </button>
+            <div className="threat-control-board">
+              <div className="flex flex-col gap-1.5" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <span className="mono-label">Active Collision Vector</span>
+                <span className="text-sm font-bold text-white font-mono flex items-center gap-2" style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.85rem" }}>
+                  {selectedConjunction ? (
+                    <>
+                      <span className="text-rose-400">{selectedConjunction.satA}</span>
+                      <span className="text-slate-600">⟷</span>
+                      <span className="text-slate-200">{selectedConjunction.satB}</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-600 uppercase">Awaiting Selection</span>
+                  )}
+                </span>
+              </div>
+              
+              <div style={{ display: "flex", gap: "12px" }}>
+                <button
+                  onClick={startNegotiation}
+                  disabled={!selectedConjunction || isNegotiating || isApproved}
+                  className="btn-premium btn-premium-cyan"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Negotiate Plan</span>
+                </button>
+
+                <button
+                  onClick={handleApprove}
+                  disabled={!decision || isApproved || isNegotiating}
+                  className="btn-premium btn-premium-green"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Approve Burn</span>
+                </button>
+              </div>
             </div>
           </div>
         </section>
 
         {/* Right Column: Negotiation logs & Operator Brief */}
-        <section className="flex flex-col gap-4 h-[580px]">
+        <section className="panel-operators-console">
           
           {/* Top Right: Realtime Negotiation Logs */}
-          <div className="glass-panel flex-1 flex flex-col min-h-[220px]">
-            <div className="flex items-center gap-2 pb-2 mb-2 border-bottom border-slate-800">
+          <div className="glass-panel" style={{ flex: 1, minHeight: "220px", marginBottom: "20px" }}>
+            <div className="hud-corner tl"></div>
+            <div className="hud-corner tr"></div>
+            <div className="hud-corner bl"></div>
+            <div className="hud-corner br"></div>
+
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80" style={{ display: "flex", alignItems: "center", gap: "8px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
               <Cpu className="w-4 h-4 text-cyan-400" />
-              <h2 className="text-xs uppercase font-display tracking-wider text-slate-200">Negotiation Log</h2>
+              <h2 className="text-xs uppercase font-mono tracking-widest text-[#d4c4a8] font-bold">Agent Telemetry</h2>
             </div>
             
-            <div
-              ref={logContainerRef}
-              className="flex-1 bg-black/95 p-3 rounded-lg border border-slate-900 overflow-y-auto font-mono text-2xs space-y-2 select-text"
-            >
+            <div ref={logContainerRef} className="terminal-console">
+              {/* Scanline CRT overlay */}
+              <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(18,16,16,0)_50%,_rgba(0,0,0,0.15)_50%),_linear-gradient(90deg,rgba(0,229,255,0.02),rgba(0,0,0,0),rgba(192,132,252,0.02))] bg-[size:100%_4px,_6px_100%] opacity-40" style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.15 }}></div>
+
               {logs.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-slate-600 text-center px-4">
-                  <span>Start a negotiation session to view live agent reasoning telemetry logs.</span>
+                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: "0.75rem", textTransform: "uppercase" }}>
+                  <span>Awaiting Negotiation Launch</span>
                 </div>
               ) : (
                 logs.map((log, i) => (
@@ -600,67 +629,77 @@ export default function App() {
           </div>
 
           {/* Bottom Right: Operator Brief Card */}
-          <div className={`glass-panel min-h-[260px] flex flex-col border-l-2 transition-all ${
-            isApproved 
-              ? "border-l-emerald-500 shadow-neon-green bg-emerald-950/10" 
-              : decision 
-                ? "border-l-amber-500 animate-pulse" 
-                : "border-l-slate-800"
-          }`}>
-            <div className="flex items-center gap-2 pb-2 mb-2 border-bottom border-slate-800">
+          <div className={`glass-panel`} style={{
+            minHeight: "270px",
+            borderLeft: isApproved ? "2px solid var(--accent-green)" : decision ? "2px solid var(--primary-gold)" : "1px solid var(--border-color)",
+            background: isApproved ? "rgba(16,185,129,0.02)" : decision ? "rgba(212,196,168,0.02)" : "var(--bg-card)"
+          }}>
+            <div className="hud-corner tl"></div>
+            <div className="hud-corner tr"></div>
+            <div className="hud-corner bl"></div>
+            <div className="hud-corner br"></div>
+
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-800/80" style={{ display: "flex", alignItems: "center", gap: "8px", paddingBottom: "10px", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
               <Server className="w-4 h-4 text-amber-500" />
-              <h2 className="text-xs uppercase font-display tracking-wider text-slate-200">Operator Action Brief</h2>
+              <h2 className="text-xs uppercase font-mono tracking-widest text-[#d4c4a8] font-bold">Avoidance Briefing</h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto text-xxs font-mono pr-1 space-y-3 select-text">
+            <div style={{ flex: 1, overflowY: "auto", fontFamily: "var(--font-mono)", fontSize: "0.7rem", paddingRight: "4px" }}>
               {!decision ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-600 text-center px-4 py-8">
-                  <HelpCircle className="w-8 h-8 mb-2 text-slate-700" />
-                  <span>Waiting for negotiated collision avoidance proposals.</span>
+                <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", padding: "40px 0" }}>
+                  <HelpCircle className="w-6 h-6 mb-2 text-slate-700" style={{ marginBottom: "8px" }} />
+                  <span className="uppercase tracking-wider">Waiting for burn plan decision</span>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className={`p-2.5 rounded border font-semibold ${
-                    isApproved 
-                      ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-400" 
-                      : "bg-red-950/40 border-red-500/30 text-red-400"
-                  }`}>
-                    {isApproved ? "BURN STATE: APPROVED & TRANSMITTED" : "BURN STATE: PENDING OPERATOR APPROVAL"}
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div className={`p-2.5 rounded border text-center font-bold tracking-wider uppercase`} style={{
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid",
+                    textAlign: "center",
+                    fontWeight: "bold",
+                    textTransform: "uppercase",
+                    fontSize: "0.65rem",
+                    background: isApproved ? "rgba(16,185,129,0.15)" : "rgba(212,196,168,0.15)",
+                    borderColor: isApproved ? "rgba(16,185,129,0.3)" : "rgba(212,196,168,0.3)",
+                    color: isApproved ? "var(--accent-green)" : "var(--primary-gold)"
+                  }}>
+                    {isApproved ? "Burn Authorized & Uploaded" : "Authorization Required"}
                   </div>
 
-                  <div className="bg-slate-900/50 p-2.5 rounded border border-slate-800/80 space-y-2 text-3xs">
-                    <div>
-                      <span className="text-slate-500 uppercase">Alert:</span>
-                      <p className="text-slate-200">{selectedConjunction.satA} vs {selectedConjunction.satB}</p>
+                  <div className="bg-slate-950 p-3 rounded border border-slate-900" style={{ background: "rgba(0,0,0,0.4)", padding: "12px", borderRadius: "6px", border: "1px solid #111", display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1c1c24", paddingBottom: "4px" }}>
+                      <span style={{ color: "var(--text-muted)", textTransform: "uppercase" }}>Threat Vector</span>
+                      <span style={{ color: "#fff", fontWeight: "bold" }}>{selectedConjunction.satA.split("-")[0]} / {selectedConjunction.satB.split("-")[0]}</span>
                     </div>
-                    <div>
-                      <span className="text-slate-500 uppercase">TCA:</span>
-                      <p className="text-slate-300">{new Date(selectedConjunction.tca).toUTCString()}</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #1c1c24", paddingBottom: "4px" }}>
+                      <span style={{ color: "var(--text-muted)", textTransform: "uppercase" }}>Time of Arrival</span>
+                      <span style={{ color: "#ddd" }}>{new Date(selectedConjunction.tca).toUTCString().slice(17, 25)} UTC</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", paddingTop: "4px" }}>
                       <div>
-                        <span className="text-slate-500 uppercase">Current Miss:</span>
-                        <p className="text-red-400 font-bold">{selectedConjunction.miss_km} km</p>
+                        <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.55rem", display: "block" }}>Unmitigated Miss</span>
+                        <span style={{ color: "var(--accent-red)", fontWeight: "bold" }}>{selectedConjunction.miss_km} km</span>
                       </div>
                       <div>
-                        <span className="text-slate-500 uppercase">Projected Miss:</span>
-                        <p className="text-emerald-400 font-bold">{decision.final_miss_km} km</p>
+                        <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.55rem", display: "block" }}>Negotiated Miss</span>
+                        <span style={{ color: "var(--accent-green)", fontWeight: "bold" }}>{decision.final_miss_km} km</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <span className="text-slate-500 uppercase text-3xs">Resolution Order:</span>
-                    <p className="text-slate-200 font-bold bg-[#0c1020] p-2 rounded border border-slate-800/60 leading-relaxed">
+                  <div>
+                    <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.6rem", display: "block", marginBottom: "4px" }}>Target Burn Action</span>
+                    <p style={{ color: "#fff", fontWeight: "bold", background: "#050508", padding: "10px", borderRadius: "4px", border: "1px solid #111", lineHeight: "1.4" }}>
                       {decision.executor === "BOTH"
                         ? "Execute coordinated double burn."
                         : `Execute a ${decision.executor === selectedConjunction.satA ? decision.satA_action.direction : decision.satB_action.direction} burn on ${decision.executor}.`}
                     </p>
                   </div>
 
-                  <div className="space-y-1">
-                    <span className="text-slate-500 uppercase text-3xs">Technical Justification:</span>
-                    <p className="text-slate-400 leading-relaxed bg-black/45 p-2.5 rounded text-3xs border border-slate-900">
+                  <div>
+                    <span style={{ color: "var(--text-muted)", textTransform: "uppercase", fontSize: "0.6rem", display: "block", marginBottom: "4px" }}>Decision Justification</span>
+                    <p style={{ color: "#aaa", background: "rgba(0,0,0,0.2)", padding: "10px", borderRadius: "4px", border: "1px solid #111", lineHeight: "1.5" }}>
                       {brief.split("Maneuver Justification:")[1] || brief}
                     </p>
                   </div>
