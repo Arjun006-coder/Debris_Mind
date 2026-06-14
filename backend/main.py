@@ -21,6 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root_health():
+    return {"status": "online", "service": "DebrisMind API"}
+
 # Cache variables to prevent heavy recalculations on every page load
 _cached_sats = None
 _cached_orbits = None
