@@ -244,5 +244,7 @@ async def get_constellation_stats():
 
 if __name__ == "__main__":
     import uvicorn
-    # Start on localhost:8000
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Bind to PORT if provided (common on Render/Railway), else default to 8000
+    port = int(os.environ.get("PORT", 8000))
+    host = "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
+    uvicorn.run(app, host=host, port=port)
