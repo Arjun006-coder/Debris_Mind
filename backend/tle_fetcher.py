@@ -13,7 +13,7 @@ def compute_checksum(line):
     return str(total % 10)
 
 def generate_tle_line1(cat_num, designator, epoch_str):
-    base = f"1 {cat_num:05d}U {designator:<8s} {epoch_str:<14s} .00001000  00000-0  99999-4 0  9991"
+    base = f"1 {cat_num:05d}U {designator:<8s} {epoch_str:<14s}  .00001000  00000-0  99999-4 0  999"
     line_sans = base[:68].ljust(68)
     return line_sans + compute_checksum(line_sans)
 
