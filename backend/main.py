@@ -25,6 +25,18 @@ app.add_middleware(
 async def root_health():
     return {"status": "online", "service": "DebrisMind API"}
 
+@app.exception_handler(Exception)
+async def debug_exception_handler(request, exc):
+    import traceback
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": str(exc),
+            "traceback": traceback.format_exc()
+        }
+    )
+
 # Cache variables to prevent heavy recalculations on every page load
 _cached_sats = None
 _cached_orbits = None
